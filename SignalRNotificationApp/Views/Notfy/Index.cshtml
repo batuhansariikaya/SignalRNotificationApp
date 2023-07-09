@@ -1,0 +1,180 @@
+﻿@{
+    ViewData["Title"] = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+@section Scripts
+    {
+    <script src="~/microsoft/signalr/dist/browser/signalr.js"></script>
+    <script src="~/microsoft/signalr/dist/browser/signalr.min.js"></script>
+
+
+    <script type="text/javascript">
+        $(document).ready(() => {
+
+            var connection = new signalR.HubConnectionBuilder()
+                .configureLogging(signalR.LogLevel.Information)
+                .withUrl("https://localhost:7293/notifyHub")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.start()
+                .then(() => console.log("Bağlantı başarıyla gerçekleştirildi."))
+                .catch(error => console.log("Bağlantı sağlanırken beklenmeyen bir hatayla karşılaşıldı."));
+
+            //connection.onreconnecting(error => {
+            //    $("div").css("background-color", "#6286a0");
+            //    $("div").css("color", "#white");
+            //    $("div").html("Bağlanılıyor")
+            //});
+            //connection.onreconnected(connecitonid => {
+            //    $("div").css("background-color", "#32a838");
+            //    $("div").css("color", "#white");
+            //    $("div").html("Bağlandı")
+            //});
+            //connection.onclose(connecitonid => {
+            //    $("div").css("background-color", "red");
+            //    $("div").css("color", "#white");
+            //    $("div").html("Bağlanılamadı")
+            //});
+
+            connection.on("userJoined",connectionId =>{
+                $('#members').html(`${connectionId} katıldı.`);
+            });
+            connection.on("userLeaved", connectionId => {
+                $('#members').html(`${connectionId} ayrıldı.`);
+            });
+            connection.on("clients",clients=>{
+                let lis="";
+                for(const client in clients){
+                    lis+=`<li>${clients[client]}</li>`;
+                }
+                $("#clients").html(lis);
+
+            })
+
+
+
+            function allUsers() {
+
+                let message = $("#txtMessage").val();
+                connection.invoke("SendNotification", message)
+                    .catch(error => console.log("Mesaj gönderilirken hata alınmıştır."));
+
+
+
+                connection.on("sendNotfy", message => {
+                    $("#succsess").text(`${message} Başarıyla Gönderildi!`);
+                });
+
+            }
+            function others() {
+
+                let _message = $("#txtMessage").val();
+                connection.invoke("SendNotificationOthers", _message)
+                    .catch(error => console.log("Mesaj gönderilirken hata alınmıştır."));
+
+                connection.on("sendNotfyOthers", _message => {
+                    $("#succsess").text(`${_message} Başarıyla Gönderildi!`);
+                });
+            }
+
+            function createGroup(){
+                let groupName=$("#txtGroupName").val();
+                connection.invoke("AddToGroup",groupName)
+                    .catch(error=>console.log("Grup oluşturulurken hata oluştu"));
+
+            }
+
+            function sendToGroup(){
+                let message = $("#txtMessage").val();
+                let groupName = $("#txtGroupName").val();
+
+                connection.invoke("GroupSendMessage",groupName, message)
+                    .catch(error => console.log("Grup oluşturulurken hata oluştu"));
+                connection.on("receiveMessage",message=>{
+                    $("#succsess").text(`Gönderilen Grup: ${groupName} - ${message} Başarıyla Gönderildi!`);
+                })
+            }
+
+
+            $("button").click(() => {
+
+                var select = document.getElementById("users");
+                var selectedValue = select.value;
+                if (selectedValue == "all") {
+                    allUsers();
+                    console.log("alll")
+                } else if (selectedValue == "others") {
+                  others();
+                  console.log("callers")
+                }
+                else if(selectedValue=="group"){
+                    createGroup()
+                    sendToGroup()
+
+                }
+                else {
+                    console.log("Geçersiz bir seçim yapıldı.");
+                }
+            });
+
+
+            function showHide(){
+                var id = document.getElementById("txtGroupName");
+                if(id.style.display=="none"){
+                    id.style.display="";
+                }
+                else{
+                    id.style.display="none";
+                }
+            }
+
+
+
+
+
+
+
+
+
+        })
+
+
+
+
+
+    </script>
+}
+<div class="form-group">
+    <label>Bildirim Mesajı:</label>
+    <input id="txtMessage" type="text" class="form-control" />
+    <label>Gönderilecek Kişi:</label>
+    <select id="users" class="form-select">
+        <option value="all">Herkes</option>
+        <option value="others">Diğerleri</option>
+        <option value="group">Grup</option>
+    </select>
+    <label>Grup Adı:</label>
+    <input id="txtGroupName" type="text" class="form-control" />
+    <br />
+    <button type="button" class="btn btn-primary">Gönder</button>
+</div>
+
+
+
+<div>
+    <div id="notfy" class="card-body bg-success">
+        <p id="succsess"></p>
+    </div>
+</div>
+
+<br />
+<div id="members" class="bg-info">
+</div>
+<p>Kullanıcılar</p>
+<ul id="clients">
+</ul>
